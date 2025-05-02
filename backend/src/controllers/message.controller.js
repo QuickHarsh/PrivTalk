@@ -70,31 +70,57 @@ export const getMessages = async (req,res) => {
 export const sendMessage = async (req,res) => {
     try {
         const { text, image, video, fileType, fileName } = req.body;
-        const { id: receiverID } = req.params;
+        const { userId: receiverID } = req.params; // Changed from id to userId to match route
         const senderID = req.user._id;
+
+        console.log("Sending message with data:", {
+            text,
+            image: image ? "image present" : "no image",
+            video: video ? "video present" : "no video",
+            fileType,
+            fileName,
+            receiverID,
+            senderID
+        });
 
         // Verify that the user is not sending a message to themselves
         if (senderID === receiverID) {
             return res.status(400).json({ error: "Cannot send message to yourself" });
         }
 
+        // Verify that the receiver exists
+        const receiver = await User.findById(receiverID);
+        if (!receiver) {
+            return res.status(404).json({ error: "Receiver not found" });
+        }
+
         let imageUrl, videoUrl;
         if (image && fileType === 'image'){
-            //upload base64 image to cloudinary
-            const uploadResponse = await cloudinary.uploader.upload(image, {
-                resource_type: "image",
-                folder: "chat_images"
-            });
-            imageUrl = uploadResponse.secure_url;
+            try {
+                //upload base64 image to cloudinary
+                const uploadResponse = await cloudinary.uploader.upload(image, {
+                    resource_type: "image",
+                    folder: "chat_images"
+                });
+                imageUrl = uploadResponse.secure_url;
+            } catch (uploadError) {
+                console.error("Error uploading image to Cloudinary:", uploadError);
+                return res.status(500).json({ error: "Failed to upload image" });
+            }
         }
 
         if (video && fileType === 'video') {
-            //upload video to cloudinary
-            const uploadResponse = await cloudinary.uploader.upload(video, {
-                resource_type: "video",
-                folder: "chat_videos"
-            });
-            videoUrl = uploadResponse.secure_url;
+            try {
+                //upload video to cloudinary
+                const uploadResponse = await cloudinary.uploader.upload(video, {
+                    resource_type: "video",
+                    folder: "chat_videos"
+                });
+                videoUrl = uploadResponse.secure_url;
+            } catch (uploadError) {
+                console.error("Error uploading video to Cloudinary:", uploadError);
+                return res.status(500).json({ error: "Failed to upload video" });
+            }
         }
 
         const newMessage = new Message({
@@ -105,7 +131,7 @@ export const sendMessage = async (req,res) => {
             video: videoUrl,
             fileType,
             fileName
-        })
+        });
 
         await newMessage.save();
 
@@ -115,12 +141,16 @@ export const sendMessage = async (req,res) => {
             io.to(receiverSocketId).emit("newMessage", newMessage);
         }
 
-        res.status(201).json(newMessage)
+        res.status(201).json(newMessage);
     } catch (error) {
-        console.log("Error in sendMessage controller: ", error.message);
-        res.status(500).json({ error: "Internal server error" })
+        console.error("Error in sendMessage controller:", error);
+        res.status(500).json({ 
+            error: "Internal server error",
+            message: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
     }
-}
+};
 
 export const markMessagesAsRead = async (req, res) => {
     try {
