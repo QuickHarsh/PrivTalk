@@ -15,6 +15,7 @@ const ChatContainer = () => {
     selectedUser,
     subscribeToMessages,
     unsubscribeFromMessages,
+    chatMetadata
   } = useChatStore();
   const { authUser } = useAuthStore();
   const messageEndRef = useRef(null);
@@ -31,7 +32,7 @@ const ChatContainer = () => {
   }, [selectedUser?._id, getMessages, subscribeToMessages, unsubscribeFromMessages]);
 
   useEffect(() => {
-    if (messageEndRef.current && messages) {
+    if (messageEndRef.current && messages?.length > 0) {
       messageEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
@@ -68,44 +69,40 @@ const ChatContainer = () => {
       <ChatHeader />
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((message) => (
+        {messages?.map((message) => (
           <div
             key={message._id}
-            className={`flex ${message.senderID === authUser._id ? "justify-end" : "justify-start"}`}
+            className={`flex ${message.sender.isMe ? "justify-end" : "justify-start"}`}
             ref={messageEndRef}
           >
-            <div className={`chat ${message.senderID === authUser._id ? "chat-end" : "chat-start"}`}>
+            <div className={`chat ${message.sender.isMe ? "chat-end" : "chat-start"}`}>
               <div className="chat-image avatar">
                 <div className="w-10 h-10 rounded-full border">
                   <img
-                    src={
-                      message.senderID === authUser._id
-                        ? authUser.profilePic || "/avatar.png"
-                        : selectedUser.profilePic || "/avatar.png"
-                    }
+                    src={message.sender.profilePic || "/avatar.png"}
                     alt="profile pic"
                   />
                 </div>
               </div>
               <div className="chat-header">
-                {message.senderID === authUser._id ? authUser.fullName : selectedUser.fullName}
+                {message.sender.fullName}
                 <time className="text-xs opacity-50 ml-1">
                   {formatMessageTime(message.createdAt)}
                 </time>
               </div>
-              <div className={`chat-bubble ${message.senderID === authUser._id ? "chat-bubble-primary" : ""}`}>
+              <div className={`chat-bubble ${message.sender.isMe ? "chat-bubble-primary" : ""}`}>
                 {message.fileType === "image" && message.image && (
                   <div className="relative">
                     <img
                       src={message.image}
-                      alt="Attachment"
-                      className="sm:max-w-[200px] rounded-md mb-2"
+                      alt="message image"
+                      className="max-w-xs rounded-lg"
                     />
                     <button
                       onClick={() => handleDownload(message.image, message.fileName)}
-                      className="absolute top-2 right-2 btn btn-circle btn-sm bg-base-100/80 hover:bg-base-100"
+                      className="absolute bottom-2 right-2 bg-black/50 p-1 rounded-full"
                     >
-                      <Download size={16} />
+                      <Download size={16} className="text-white" />
                     </button>
                   </div>
                 )}
@@ -114,17 +111,17 @@ const ChatContainer = () => {
                     <video
                       src={message.video}
                       controls
-                      className="sm:max-w-[200px] rounded-md mb-2"
+                      className="max-w-xs rounded-lg"
                     />
                     <button
                       onClick={() => handleDownload(message.video, message.fileName)}
-                      className="absolute top-2 right-2 btn btn-circle btn-sm bg-base-100/80 hover:bg-base-100"
+                      className="absolute bottom-2 right-2 bg-black/50 p-1 rounded-full"
                     >
-                      <Download size={16} />
+                      <Download size={16} className="text-white" />
                     </button>
                   </div>
                 )}
-                {message.text && <p>{message.text}</p>}
+                {message.text}
               </div>
             </div>
           </div>

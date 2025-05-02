@@ -54,6 +54,16 @@ export const getMessages = async (req,res) => {
             userToChatId
         });
 
+        // Get both users' details
+        const [currentUser, otherUser] = await Promise.all([
+            User.findById(myId).select('fullName profilePic'),
+            User.findById(userToChatId).select('fullName profilePic')
+        ]);
+
+        if (!currentUser || !otherUser) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
         // Get messages between the two users
         const messages = await Message.find({
             $or: [
@@ -85,7 +95,50 @@ export const getMessages = async (req,res) => {
             { $set: { read: true } }
         );
 
-        res.status(200).json(messages);
+        // Structure the response
+        const structuredMessages = messages.map(message => ({
+            _id: message._id,
+            text: message.text,
+            image: message.image,
+            video: message.video,
+            fileType: message.fileType,
+            fileName: message.fileName,
+            read: message.read,
+            createdAt: message.createdAt,
+            sender: {
+                _id: message.senderID._id,
+                fullName: message.senderID.fullName,
+                profilePic: message.senderID.profilePic,
+                isMe: message.senderID._id.toString() === myId.toString()
+            },
+            receiver: {
+                _id: message.receiverID._id,
+                fullName: message.receiverID.fullName,
+                profilePic: message.receiverID.profilePic,
+                isMe: message.receiverID._id.toString() === myId.toString()
+            }
+        }));
+
+        // Add chat metadata
+        const response = {
+            chatId: userToChatId,
+            participants: {
+                currentUser: {
+                    _id: currentUser._id,
+                    fullName: currentUser.fullName,
+                    profilePic: currentUser.profilePic
+                },
+                otherUser: {
+                    _id: otherUser._id,
+                    fullName: otherUser.fullName,
+                    profilePic: otherUser.profilePic
+                }
+            },
+            messages: structuredMessages,
+            totalMessages: messages.length
+        };
+
+        res.status(200).json(response);
     } catch (error) {
         console.error("Error in getMessages controller:", error);
         res.status(500).json({ 
