@@ -62,8 +62,16 @@ export const getMessages = async (req,res) => {
             ]
         })
         .sort({ createdAt: 1 })
-        .populate('senderID', 'fullName profilePic')
-        .populate('receiverID', 'fullName profilePic');
+        .populate({
+            path: 'senderID',
+            select: 'fullName profilePic',
+            model: User
+        })
+        .populate({
+            path: 'receiverID',
+            select: 'fullName profilePic',
+            model: User
+        });
 
         console.log(`Found ${messages.length} messages`);
 
