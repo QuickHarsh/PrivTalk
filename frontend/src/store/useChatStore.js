@@ -55,7 +55,26 @@ export const useChatStore = create((set, get) => ({
 
     try {
       const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, messageData);
-      set({ messages: [...messages, res.data] });
+      const { authUser } = useAuthStore.getState();
+      
+      // Structure the new message
+      const structuredMessage = {
+        ...res.data,
+        sender: {
+          _id: res.data.senderID,
+          fullName: authUser.fullName,
+          profilePic: authUser.profilePic,
+          isMe: true
+        },
+        receiver: {
+          _id: res.data.receiverID,
+          fullName: selectedUser.fullName,
+          profilePic: selectedUser.profilePic,
+          isMe: false
+        }
+      };
+
+      set({ messages: [...messages, structuredMessage] });
     } catch (error) {
       if (error.response?.status === 400) {
         toast.error("Cannot send message to yourself");
@@ -66,15 +85,19 @@ export const useChatStore = create((set, get) => ({
   },
 
   subscribeToMessages: () => {
-    const { selectedUser } = get();
+    const { selectedUser, messages } = get();
     if (!selectedUser) return;
 
     const socket = useAuthStore.getState().socket;
     if (!socket) return;
 
+    const { authUser } = useAuthStore.getState();
+
+    // Remove any existing listeners to prevent duplicates
+    socket.off("newMessage");
+
     socket.on("newMessage", (newMessage) => {
-      const { messages } = get();
-      const { authUser } = useAuthStore.getState();
+      console.log("New message received:", newMessage);
       
       // Only add message if it's from/to the selected user and current user
       const isRelevantMessage = 
@@ -82,7 +105,25 @@ export const useChatStore = create((set, get) => ({
         (newMessage.senderID === authUser._id && newMessage.receiverID === selectedUser._id);
       
       if (isRelevantMessage) {
-        set({ messages: [...messages, newMessage] });
+        // Structure the new message
+        const structuredMessage = {
+          ...newMessage,
+          sender: {
+            _id: newMessage.senderID,
+            fullName: newMessage.senderID === authUser._id ? authUser.fullName : selectedUser.fullName,
+            profilePic: newMessage.senderID === authUser._id ? authUser.profilePic : selectedUser.profilePic,
+            isMe: newMessage.senderID === authUser._id
+          },
+          receiver: {
+            _id: newMessage.receiverID,
+            fullName: newMessage.receiverID === authUser._id ? authUser.fullName : selectedUser.fullName,
+            profilePic: newMessage.receiverID === authUser._id ? authUser.profilePic : selectedUser.profilePic,
+            isMe: newMessage.receiverID === authUser._id
+          }
+        };
+
+        console.log("Adding structured message:", structuredMessage);
+        set((state) => ({ messages: [...state.messages, structuredMessage] }));
       }
     });
   },
