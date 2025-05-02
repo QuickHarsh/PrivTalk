@@ -70,7 +70,7 @@ export const getMessages = async (req,res) => {
 export const sendMessage = async (req,res) => {
     try {
         const { text, image, video, fileType, fileName } = req.body;
-        const { userId: receiverID } = req.params; // Changed from id to userId to match route
+        const { userId: receiverID } = req.params;
         const senderID = req.user._id;
 
         console.log("Sending message with data:", {
@@ -97,7 +97,6 @@ export const sendMessage = async (req,res) => {
         let imageUrl, videoUrl;
         if (image && fileType === 'image'){
             try {
-                //upload base64 image to cloudinary
                 const uploadResponse = await cloudinary.uploader.upload(image, {
                     resource_type: "image",
                     folder: "chat_images"
@@ -111,7 +110,6 @@ export const sendMessage = async (req,res) => {
 
         if (video && fileType === 'video') {
             try {
-                //upload video to cloudinary
                 const uploadResponse = await cloudinary.uploader.upload(video, {
                     resource_type: "video",
                     folder: "chat_videos"
@@ -123,25 +121,44 @@ export const sendMessage = async (req,res) => {
             }
         }
 
+        // Create and save the message
         const newMessage = new Message({
             senderID,
             receiverID,
             text,
             image: imageUrl,
             video: videoUrl,
-            fileType,
+            fileType: fileType || 'text',
             fileName
         });
 
-        await newMessage.save();
+        console.log("Attempting to save message:", {
+            senderID,
+            receiverID,
+            text,
+            image: imageUrl ? "image present" : "no image",
+            video: videoUrl ? "video present" : "no video",
+            fileType: newMessage.fileType
+        });
 
-        // Only emit to the specific receiver
-        const receiverSocketId = getReceiverSocketId(receiverID);
-        if (receiverSocketId){
-            io.to(receiverSocketId).emit("newMessage", newMessage);
+        try {
+            const savedMessage = await newMessage.save();
+            console.log("Message saved successfully:", savedMessage._id);
+
+            // Only emit to the specific receiver
+            const receiverSocketId = getReceiverSocketId(receiverID);
+            if (receiverSocketId) {
+                io.to(receiverSocketId).emit("newMessage", savedMessage);
+            }
+
+            res.status(201).json(savedMessage);
+        } catch (saveError) {
+            console.error("Error saving message to database:", saveError);
+            return res.status(500).json({ 
+                error: "Failed to save message",
+                details: saveError.message
+            });
         }
-
-        res.status(201).json(newMessage);
     } catch (error) {
         console.error("Error in sendMessage controller:", error);
         res.status(500).json({ 
