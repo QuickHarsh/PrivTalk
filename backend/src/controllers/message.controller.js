@@ -46,26 +46,46 @@ export const getUsersForSidebar = async (req,res) => {
 
 export const getMessages = async (req,res) => {
     try {
-        const { id: userToChatId } = req.params
+        const { userId: userToChatId } = req.params;
         const myId = req.user._id;
 
-        // Verify that the user is trying to access their own conversation
-        if (userToChatId !== myId) {
-            const message = await Message.find({
-                $or:[
-                    {senderID:myId, receiverID:userToChatId},
-                    {senderID:userToChatId, receiverID:myId}
-                ]
-            }).sort({ createdAt: 1 });
-            res.status(200).json(message);
-        } else {
-            res.status(403).json({ error: "Unauthorized access" });
-        }
+        console.log("Fetching messages between:", {
+            myId,
+            userToChatId
+        });
+
+        // Get messages between the two users
+        const messages = await Message.find({
+            $or: [
+                { senderID: myId, receiverID: userToChatId },
+                { senderID: userToChatId, receiverID: myId }
+            ]
+        })
+        .sort({ createdAt: 1 })
+        .populate('senderID', 'fullName profilePic')
+        .populate('receiverID', 'fullName profilePic');
+
+        console.log(`Found ${messages.length} messages`);
+
+        // Mark unread messages as read
+        await Message.updateMany(
+            {
+                senderID: userToChatId,
+                receiverID: myId,
+                read: false
+            },
+            { $set: { read: true } }
+        );
+
+        res.status(200).json(messages);
     } catch (error) {
-        console.log("Error in getMessages controller ", error.message);
-        res.status(500).json({ error: "Internal server error" })
+        console.error("Error in getMessages controller:", error);
+        res.status(500).json({ 
+            error: "Internal server error",
+            message: error.message
+        });
     }
-}
+};
 
 export const sendMessage = async (req,res) => {
     try {
