@@ -9,6 +9,7 @@ export const useChatStore = create((set, get) => ({
   selectedUser: null,
   isUsersLoading: false,
   isMessagesLoading: false,
+  chatMetadata: null,
 
   getUsers: async () => {
     set({ isUsersLoading: true });
@@ -26,14 +27,20 @@ export const useChatStore = create((set, get) => ({
     set({ isMessagesLoading: true });
     try {
       const res = await axiosInstance.get(`/messages/${userId}`);
-      set({ messages: res.data });
+      set({ 
+        messages: res.data.messages,
+        chatMetadata: {
+          participants: res.data.participants,
+          totalMessages: res.data.totalMessages
+        }
+      });
     } catch (error) {
       if (error.response?.status === 403) {
         toast.error("Unauthorized access to messages");
       } else {
         toast.error(error.response?.data?.message || "Failed to load messages");
       }
-      set({ messages: [] });
+      set({ messages: [], chatMetadata: null });
     } finally {
       set({ isMessagesLoading: false });
     }
