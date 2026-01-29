@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import path from "path";
+import morgan from "morgan";
 
 import { connectDB } from "./lib/db.js";
 import authRoutes from "./routes/auth.route.js";
@@ -21,6 +22,8 @@ app.use(cors({
   origin: true, // Allow all origins in development
   credentials: true
 }));
+
+app.use(morgan("dev"));
 
 // API Routes
 app.use("/api/auth", authRoutes);
