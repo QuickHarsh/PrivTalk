@@ -19,7 +19,7 @@ const __dirname = path.resolve();
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
-  origin: true, // Allow all origins in development
+  origin: process.env.CLIENT_URL || "http://localhost:5173",
   credentials: true
 }));
 
@@ -30,12 +30,15 @@ app.use("/api/auth", authRoutes);
 app.use("/api/messages", messageRoutes);
 
 // Serve static files from the frontend build
+/*
+// Serve static files from the frontend build
 app.use(express.static(path.join(__dirname, "../frontend/dist")));
 
 // Handle SPA routing - serve index.html for all routes not handled by API
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "../frontend/dist/index.html"));
 });
+*/
 
 // Error handling middleware
 app.use((err, req, res, next) => {
